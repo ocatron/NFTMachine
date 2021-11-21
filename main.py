@@ -15,14 +15,15 @@ def prettyPrint(d):
 
 
 class NFTM:
-    def __init__(self, projectDir, totalArtworks, isAnimated):
+    def __init__(self, projectDir, totalArtworks, frames, duration):
         
         self.projectDir = Path(projectDir)
         self.assetsDir = self.projectDir/"Assets"
         self.configDir = self.projectDir/"Config"
         self.outputDir = self.projectDir/"Output"
         self.totalArtworksNeeded = totalArtworks
-        self.isAnimated = isAnimated
+        self.frames = frames
+        self.duration = duration
 
     def getLayers(self):
 
@@ -30,7 +31,7 @@ class NFTM:
         # "traitType": item.name.split("_",maxsplit=1)[1].replace("_"," ").capitalize(),
         layers = [
             {
-                "dir": item.name,
+                "layerLabel": item.name,
                 "weight": 100.0
             }
         for item in self.assetsDir.iterdir()]
@@ -44,12 +45,12 @@ class NFTM:
         return layers
 
     def getTraits(self,layer):
-        layerDir = self.assetsDir/layer["dir"]
+        layerDir = self.assetsDir/layer["layerLabel"]
 
         # "label": item.stem.replace("_"," ").capitalize(),
         traits = [
             {
-                "file":item.name,
+                "traitLabel":item.stem,
                 "weight": 0
             }
         for item in layerDir.iterdir()]
@@ -79,8 +80,8 @@ class NFTM:
             layer["traits"] = traits
 
             draftCompLayer = {
-                "dir": layer["dir"],
-                "file": layer["traits"][0]["file"]
+                "layerLabel": layer["layerLabel"],
+                "traitLabel": layer["traits"][0]["traitLabel"]
             }
 
             fixedDraftCompT.append(draftCompLayer)
@@ -104,7 +105,7 @@ class NFTM:
         weights = []
 
         for trait in layer["traits"]:
-            population.append(trait["file"])
+            population.append(trait["traitLabel"])
             weights.append(trait["weight"])
 
         return population,weights
@@ -112,15 +113,15 @@ class NFTM:
     def getDraftCompString(self,draftComp):
         compString = ""
         for layer in draftComp:
-            compString += layer["dir"]+":"+str(layer["file"])+","
+            compString += layer["layerLabel"]+":"+str(layer["traitLabel"])+","
 
         return compString
 
     def generateComps(self):
 
         bar = ChargingBar("Generating Comps", max=self.totalArtworksNeeded, suffix = "%(eta_td)s")
-
         startTime = time.time()
+
         configFile = self.configDir/"config.json"
         config = None
         with configFile.open() as cf:
@@ -138,7 +139,7 @@ class NFTM:
                 emptyTraitWeight = ( curWeightSum * (100.0 - layer["weight"]) ) / layer["weight"]
 
                 emptyTrait = {
-                    "file": None,
+                    "traitLabel": None,
                     "weight": emptyTraitWeight
                 }
                 layer["traits"].append(emptyTrait)
@@ -150,7 +151,7 @@ class NFTM:
         if config["fixedComps"]:
             for draftComp in config["fixedComps"]:
 
-                draftComp.sort(key= lambda item: int(item["dir"].split("_",maxsplit=1)[0]))
+                draftComp.sort(key= lambda item: int(item["layerLabel"].split("_",maxsplit=1)[0]))
 
                 visited.add(self.getDraftCompString(draftComp))
                 draftComps.append(draftComp)
@@ -164,14 +165,14 @@ class NFTM:
             draftComp = []
             for layer in config["layers"]:
                 population, weights = self.getPopWeights(layer)
-                file = random.choices(population=population,weights=weights,k=1)[0]
+                trait = random.choices(population=population,weights=weights,k=1)[0]
                 draftCompLayer = {
-                    "dir": layer["dir"],
-                    "file": file
+                    "layerLabel": layer["layerLabel"],
+                    "traitLabel": trait
                 }
                 draftComp.append(draftCompLayer)
 
-            draftComp.sort(key= lambda item: int(item["dir"].split("_",maxsplit=1)[0]))
+            draftComp.sort(key= lambda item: int(item["layerLabel"].split("_",maxsplit=1)[0]))
             
             draftCompString = self.getDraftCompString(draftComp)
             
@@ -186,19 +187,18 @@ class NFTM:
         rarities = {}
         
         for layer in config["layers"]:
-            rarities[layer["dir"]]={}
-            traits = [ i["file"] for i in layer["traits"]]
-            for trait in traits:
-                rarities[layer["dir"]][trait]=0
+            rarities[layer["layerLabel"]]={}
+            for trait in layer["traits"]:
+                rarities[layer["layerLabel"]][trait["traitLabel"]]=0
 
         for draftComp in draftComps:
             for layer in draftComp:
-                rarities[layer["dir"]][layer["file"]] += 1
+                rarities[layer["layerLabel"]][layer["traitLabel"]] += 1
 
-        for dir,files in rarities.items():
-            for file,count in files.items():
+        for layerLabel,traits in rarities.items():
+            for traitLabel,count in traits.items():
                 count = round((float(count)/self.totalArtworksNeeded)*100,2)
-                rarities[dir][file] = count
+                rarities[layerLabel][traitLabel] = count
 
 
         print()
@@ -222,7 +222,7 @@ class NFTM:
         print()
 
         print()
-        self.generateImages(compsDict)
+        self.generateArtworks(compsDict)
         print()
 
         print("Took ", time.time() - startTime, " seconds")
@@ -246,10 +246,10 @@ class NFTM:
         metadata["image"] = baseImageURI + "/" + fileStem + ".png"
 
         for layer in comp:
-            if layer["file"]:
+            if layer["traitLabel"]:
                 attribute = {}
-                attribute["trait_type"] = layer["dir"].split("_",maxsplit=1)[1].replace("_"," ").capitalize()
-                attribute["value"] = Path(layer["file"]).stem.replace("_"," ").title()
+                attribute["trait_type"] = layer["layerLabel"].split("_",maxsplit=1)[1].replace("_"," ").capitalize()
+                attribute["value"] = layer["traitLabel"].replace("_"," ").title()
                 metadata["attributes"].append(attribute)
 
         return metadata
@@ -262,7 +262,15 @@ class NFTM:
         metadataDir = self.outputDir/"Metadata"
         metadataDir.mkdir(parents=True,exist_ok=True)
 
-        comps = compsDict["comps"]
+        comps = None
+        if compsDict:
+            comps = compsDict["comps"]
+        else:
+            compsFile = self.outputDir/"comps.json"
+            with compsFile.open() as cf:
+                compsDict = json.load(cf)
+                comps = compsDict["comps"]
+
         total = len(comps)
 
         bar = ChargingBar("Saving metadata", max=total, suffix = "%(eta_td)s")
@@ -276,22 +284,41 @@ class NFTM:
                 json.dump(metadata,f,indent=4)
             bar.next()
 
-    def getImageFromComp(self,comp):
-
-        img = None
-        baseImgNotReady = True
-        for layer in comp:
-            if layer["file"]:
-                if baseImgNotReady:
-                    img = Image.open(self.assetsDir/(layer["dir"]+"/"+layer["file"]))
-                    baseImgNotReady = False
-                else:
-                    curImg = Image.open(self.assetsDir/(layer["dir"]+"/"+layer["file"]))
-                    img.paste(curImg,(0,0),curImg)
+    def getArtworkFromComp(self,comp):
+        if self.frames == 1:
+            img = None
+            baseImgNotReady = True
+            for layer in comp:
+                if layer["traitLabel"]:
+                    if baseImgNotReady:
+                        img = Image.open(self.assetsDir/(layer["layerLabel"]+"/"+layer["traitLabel"]+".png"))
+                        baseImgNotReady = False
+                    else:
+                        curImg = Image.open(self.assetsDir/(layer["layerLabel"]+"/"+layer["traitLabel"]+".png"))
+                        img.paste(curImg,(0,0),curImg)
         
-        return img
+            return img
+        elif self.frames > 1:
+            imgs = []
+            
+            for i in range(self.frames):
+                img = None
+                baseImgNotReady = True
+                for layer in comp:
+                    if layer["traitLabel"]:
+                        traitSeqDir = self.assetsDir/(layer["layerLabel"]+"/"+layer["traitLabel"])
+                        traitSeq = [item for item in traitSeqDir.iterdir()]
+                        if baseImgNotReady:
+                            img = Image.open(traitSeq[i])
+                            baseImgNotReady = False
+                        else:
+                            curImg = Image.open(traitSeq[i])
+                            img.paste(curImg,(0,0),curImg)
+                imgs.append(img)
+            
+            return imgs
 
-    def generateImages(self,compsDict):
+    def generateArtworks(self,compsDict):
 
         imagesDir = self.outputDir/"Images"
         imagesDir.mkdir(parents=True,exist_ok=True)
@@ -302,12 +329,23 @@ class NFTM:
         bar = ChargingBar("Saving images", max=total, suffix = "%(eta_td)s")
         for idx in range(total):
             fileStem = self.getFileNameByIdx(idx,total)
-            imgFile = imagesDir/(fileStem + ".png")
-            img = self.getImageFromComp(comps[idx])
-            img.save(imgFile)
+            artwork = self.getArtworkFromComp(comps[idx])
+            if type(artwork) is list:
+                artworkFile = imagesDir/(fileStem + ".gif")
+                frameDuration = 0
+                if self.duration > 0:
+                    frameDuration = self.duration*1000/self.frames
+                else:
+                    frameDuration = 40
+                artwork[0].save(artworkFile, save_all=True, append_images=artwork[1:], optimize=False, duration=frameDuration, loop=0)
+            else:
+                artworkFile = imagesDir/(fileStem + ".png")
+                artwork.save(artworkFile)
             bar.next()
 
 
-nftm = NFTM("D:\\Projects\\NFT Tools\\NFT Machine\\Project", 10, False)
-
+nftm = NFTM("D:\\Projects\\NFT Tools\\NFT Machine\\Project", 10, frames=1, duration=0)
+# nftm.generateConfig()
 nftm.generateComps()
+# nftm.generateMetadata(None,"testing123","testURITheHEll")
+
