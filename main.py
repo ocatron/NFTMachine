@@ -348,4 +348,3 @@ nftm = NFTM("D:\\Projects\\NFT Tools\\NFT Machine\\Project", 10, frames=1, durat
 # nftm.generateConfig()
 nftm.generateComps()
 # nftm.generateMetadata(None,"testing123","testURITheHEll")
-
