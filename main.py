@@ -295,7 +295,8 @@ class NFTM:
                         baseImgNotReady = False
                     else:
                         curImg = Image.open(self.assetsDir/(layer["layerLabel"]+"/"+layer["traitLabel"]+".png"))
-                        img.paste(curImg,(0,0),curImg)
+                        if not img == None:
+                            img.paste(curImg,(0,0),curImg)
         
             return img
         elif self.frames > 1:
@@ -313,7 +314,8 @@ class NFTM:
                             baseImgNotReady = False
                         else:
                             curImg = Image.open(traitSeq[i])
-                            img.paste(curImg,(0,0),curImg)
+                            if not img ==None:
+                                img.paste(curImg,(0,0),curImg)
                 imgs.append(img)
             
             return imgs
