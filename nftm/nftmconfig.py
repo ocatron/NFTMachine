@@ -33,6 +33,7 @@ class NFTMConfig:
         self.fixed_comps: list = []
         self.layers: dict = {}
 
+    # Probably we don't need this
     @classmethod
     def init_from_existing_project(cls, project_dir: str):
         config: dict = nftmutils.read_json_file(Path(project_dir)/"Config/config.json")
@@ -53,7 +54,11 @@ class NFTMConfig:
 
         layer_keys: list[str] = self.get_layer_keys()
 
-        fixed_comp_template: list[dict] = []
+        fixed_comp_template: dict[str,Any] = {
+            "rarity-score": None,
+            "extra_attributes": [],
+            "layers": []
+        }
 
         for layer_key in layer_keys:
 
@@ -71,7 +76,7 @@ class NFTMConfig:
                 "display_name": "None",
                 "weight": 1,
                 "group": None,
-                "avoid": []
+                "avoid": {}
             }
 
             for trait_key in trait_keys:
@@ -90,7 +95,7 @@ class NFTMConfig:
                 "trait_key": empty_trait_key
             }
 
-            fixed_comp_template.append(fixed_comp_layer_template)
+            fixed_comp_template["layers"].append(fixed_comp_layer_template)
 
         config: dict[str,Any] = {
             "total_artworks_needed": self.total_artworks_needed,

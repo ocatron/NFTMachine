@@ -346,7 +346,19 @@ class NFTM:
             bar.next()
 
 
-nftm = NFTM("D:\\Projects\\NFT Tools\\NFT Machine\\Project", 10, frames=1, duration=0)
+# nftm = NFTM("D:\\Projects\\NFT Tools\\NFT Machine\\Project", 10, frames=1, duration=0)
 # nftm.generateConfig()
-nftm.generateComps()
+# nftm.generateComps()
 # nftm.generateMetadata(None,"testing123","testURITheHEll")
+temp = {
+    "a": ["a","b"],
+    "b": [1,2,3,4],
+    "c": []
+}
+
+if "c" in temp:
+    print(True)
+else:
+    print(False)
+
+    
